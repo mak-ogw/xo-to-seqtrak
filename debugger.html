@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMF Debugger</title>
+    <style>
+        :root {
+            --bg: #07080b;
+            --panel: rgba(20, 22, 28, 0.72);
+            --panel-soft: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.1);
+            --text: #f3f4f6;
+            --muted: #9ca3af;
+            --dim: #6b7280;
+            --accent: #38bdf8;
+            --accent-2: #a78bfa;
+            --error: #fb7185;
+            --ok: #34d399;
+            --mono: Consolas, "Liberation Mono", "Courier New", monospace;
+            --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+        }
+
+        .page {
+            width: min(1180px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 32px 0 48px;
+        }
+
+        header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: end;
+            gap: 16px;
+            margin-bottom: 22px;
+        }
+
+        h1 {
+            margin: 0 0 6px;
+            font-size: clamp(2rem, 5vw, 3.4rem);
+            line-height: 1;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .button {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(167, 139, 250, 0.2));
+            color: var(--text);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 0 16px;
+            font-weight: 700;
+        }
+
+        .dropzone {
+            border: 1px dashed rgba(255, 255, 255, 0.24);
+            border-radius: 10px;
+            background: var(--panel);
+            padding: 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .dropzone.dragover {
+            border-color: var(--accent);
+            background: rgba(56, 189, 248, 0.08);
+        }
+
+        .status {
+            margin-bottom: 18px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--panel-soft);
+            color: var(--muted);
+        }
+
+        .status.error {
+            border-color: rgba(251, 113, 133, 0.5);
+            color: var(--error);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .metric,
+        .section {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--panel);
+        }
+
+        .metric {
+            padding: 14px;
+        }
+
+        .metric .label {
+            color: var(--dim);
+            font-size: 0.78rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .metric .value {
+            margin-top: 6px;
+            font-family: var(--mono);
+            font-size: 1rem;
+            overflow-wrap: anywhere;
+        }
+
+        .section {
+            margin-top: 16px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-header h2 {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .section-header span {
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 0.82rem;
+        }
+
+        .section-body {
+            padding: 14px 16px 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92rem;
+        }
+
+        th,
+        td {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            color: var(--muted);
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.025);
+        }
+
+        td.mono,
+        th.mono {
+            font-family: var(--mono);
+        }
+
+        .event-table-wrapper {
+            max-height: 420px;
+            overflow: auto;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+        }
+
+        .hex {
+            margin: 0;
+            max-height: 300px;
+            overflow: auto;
+            white-space: pre;
+            font-family: var(--mono);
+            font-size: 0.82rem;
+            line-height: 1.55;
+            color: #d1d5db;
+            background: rgba(0, 0, 0, 0.24);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            min-height: 22px;
+            padding: 0 8px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            color: var(--ok);
+            font-family: var(--mono);
+            font-size: 0.78rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="page">
+        <header>
+            <div>
+                <h1>SMF Debugger</h1>
+                <p>Inspect MIDI chunks, raw bytes, and a simple interpretation of track events.</p>
+            </div>
+            <label class="button" for="fileInput">Open MIDI</label>
+            <input id="fileInput" class="file-input" type="file" accept=".mid,.midi">
+        </header>
+
+        <section id="dropzone" class="dropzone">
+            <div>
+                <strong>Drop a .mid or .midi file here</strong>
+                <p id="fileLabel">No file loaded.</p>
+            </div>
+            <span class="pill">SMF parser</span>
+        </section>
+
+        <div id="status" class="status">Ready.</div>
+
+        <section id="summary" class="grid hidden"></section>
+        <section id="chunks"></section>
+    </main>
+
+    <script>
+        const fileInput = document.getElementById("fileInput");
+        const dropzone = document.getElementById("dropzone");
+        const fileLabel = document.getElementById("fileLabel");
+        const statusBox = document.getElementById("status");
+        const summary = document.getElementById("summary");
+        const chunks = document.getElementById("chunks");
+
+        const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const META_TYPES = {
+            0x00: "Sequence Number",
+            0x01: "Text",
+            0x02: "Copyright",
+            0x03: "Track Name",
+            0x04: "Instrument Name",
+            0x05: "Lyric",
+            0x06: "Marker",
+            0x07: "Cue Point",
+            0x20: "MIDI Channel Prefix",
+            0x21: "MIDI Port",
+            0x2F: "End of Track",
+            0x51: "Set Tempo",
+            0x54: "SMPTE Offset",
+            0x58: "Time Signature",
+            0x59: "Key Signature",
+            0x7F: "Sequencer Specific"
+        };
+
+        const CHANNEL_TYPES = {
+            0x80: "Note Off",
+            0x90: "Note On",
+            0xA0: "Poly Pressure",
+            0xB0: "Control Change",
+            0xC0: "Program Change",
+            0xD0: "Channel Pressure",
+            0xE0: "Pitch Bend"
+        };
+
+        fileInput.addEventListener("change", () => {
+            if (fileInput.files.length > 0) {
+                loadFile(fileInput.files[0]);
+            }
+        });
+
+        dropzone.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            dropzone.classList.add("dragover");
+        });
+
+        dropzone.addEventListener("dragleave", () => {
+            dropzone.classList.remove("dragover");
+        });
+
+        dropzone.addEventListener("drop", (event) => {
+            event.preventDefault();
+            dropzone.classList.remove("dragover");
+            if (event.dataTransfer.files.length > 0) {
+                loadFile(event.dataTransfer.files[0]);
+            }
+        });
+
+        function setStatus(message, isError = false) {
+            statusBox.textContent = message;
+            statusBox.classList.toggle("error", isError);
+        }
+
+        function loadFile(file) {
+            const ext = file.name.split(".").pop().toLowerCase();
+            if (ext !== "mid" && ext !== "midi") {
+                setStatus("Only .mid or .midi files are supported.", true);
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const bytes = new Uint8Array(reader.result);
+                    const parsed = parseSmf(bytes);
+                    fileLabel.textContent = `${file.name} (${bytes.length} bytes)`;
+                    render(parsed, bytes.length);
+                    setStatus(`Parsed ${parsed.chunks.length} chunk(s).`);
+                } catch (error) {
+                    summary.classList.add("hidden");
+                    chunks.innerHTML = "";
+                    setStatus(error.message, true);
+                }
+            };
+            reader.onerror = () => setStatus("Failed to read the file.", true);
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseSmf(data) {
+            if (data.length < 8) {
+                throw new Error("File is too small to contain an SMF chunk.");
+            }
+
+            const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+            const parsed = {
+                header: null,
+                chunks: []
+            };
+            let offset = 0;
+
+            while (offset + 8 <= data.length) {
+                const id = readAscii(data, offset, 4);
+                const length = view.getUint32(offset + 4);
+                const dataOffset = offset + 8;
+                const endOffset = dataOffset + length;
+
+                const chunk = {
+                    id,
+                    offset,
+                    length,
+                    dataOffset,
+                    endOffset,
+                    bytes: data.slice(offset, Math.min(endOffset, data.length)),
+                    warning: endOffset > data.length ? "Chunk length extends beyond file size." : ""
+                };
+
+                if (id === "MThd") {
+                    chunk.meaning = "Header chunk";
+                    chunk.header = parseHeader(view, dataOffset, length);
+                    parsed.header = chunk.header;
+                } else if (id === "MTrk") {
+                    chunk.meaning = "Track chunk";
+                    chunk.events = endOffset <= data.length ? parseTrack(data.slice(dataOffset, endOffset)) : [];
+                } else {
+                    chunk.meaning = "Unknown or application-specific chunk";
+                }
+
+                parsed.chunks.push(chunk);
+                if (endOffset > data.length) break;
+                offset = endOffset;
+            }
+
+            if (offset < data.length) {
+                parsed.trailingBytes = data.slice(offset);
+            }
+
+            if (!parsed.header) {
+                throw new Error("MThd header chunk was not found.");
+            }
+
+            return parsed;
+        }
+
+        function parseHeader(view, offset, length) {
+            if (length < 6) {
+                return { error: "Header chunk is shorter than 6 bytes." };
+            }
+
+            const divisionRaw = view.getUint16(offset + 4);
+            const smpte = Boolean(divisionRaw & 0x8000);
+            let divisionText;
+            if (smpte) {
+                const fpsByte = (divisionRaw >> 8) & 0xFF;
+                const ticksPerFrame = divisionRaw & 0xFF;
+                const fps = 256 - fpsByte;
+                divisionText = `SMPTE: ${fps} fps, ${ticksPerFrame} ticks/frame`;
+            } else {
+                divisionText = `${divisionRaw} ticks/quarter note`;
+            }
+
+            return {
+                format: view.getUint16(offset),
+                trackCount: view.getUint16(offset + 2),
+                divisionRaw,
+                divisionText
+            };
+        }
+
+        function parseTrack(trackData) {
+            const events = [];
+            let offset = 0;
+            let absTime = 0;
+            let runningStatus = null;
+
+            while (offset < trackData.length) {
+                const eventOffset = offset;
+                const delta = readVlq(trackData, offset);
+                offset += delta.bytesRead;
+                absTime += delta.value;
+
+                let status = trackData[offset];
+                let usedRunningStatus = false;
+                if (status === undefined) {
+                    events.push(makeErrorEvent(eventOffset, absTime, "Unexpected end of track after delta time."));
+                    break;
+                }
+
+                if (status & 0x80) {
+                    offset++;
+                    if (status < 0xF0) runningStatus = status;
+                } else if (runningStatus !== null) {
+                    status = runningStatus;
+                    usedRunningStatus = true;
+                } else {
+                    events.push(makeErrorEvent(eventOffset, absTime, "Running status was used before any status byte."));
+                    break;
+                }
+
+                if (status === 0xFF) {
+                    const metaType = trackData[offset++];
+                    const length = readVlq(trackData, offset);
+                    offset += length.bytesRead;
+                    const payload = trackData.slice(offset, offset + length.value);
+                    offset += length.value;
+
+                    events.push({
+                        offset: eventOffset,
+                        absTime,
+                        delta: delta.value,
+                        status,
+                        type: "Meta",
+                        detail: describeMeta(metaType, payload),
+                        bytes: trackData.slice(eventOffset, Math.min(offset, trackData.length))
+                    });
+                    continue;
+                }
+
+                if (status === 0xF0 || status === 0xF7) {
+                    const length = readVlq(trackData, offset);
+                    offset += length.bytesRead;
+                    const payload = trackData.slice(offset, offset + length.value);
+                    offset += length.value;
+
+                    events.push({
+                        offset: eventOffset,
+                        absTime,
+                        delta: delta.value,
+                        status,
+                        type: status === 0xF0 ? "SysEx" : "Escaped SysEx",
+                        detail: `${payload.length} data byte(s)`,
+                        bytes: trackData.slice(eventOffset, Math.min(offset, trackData.length))
+                    });
+                    continue;
+                }
+
+                const eventType = status & 0xF0;
+                const channel = (status & 0x0F) + 1;
+                const dataLength = eventType === 0xC0 || eventType === 0xD0 ? 1 : 2;
+                const d1 = trackData[offset];
+                const d2 = dataLength === 2 ? trackData[offset + 1] : null;
+                offset += dataLength;
+
+                events.push({
+                    offset: eventOffset,
+                    absTime,
+                    delta: delta.value,
+                    status,
+                    type: CHANNEL_TYPES[eventType] || "Channel Event",
+                    detail: describeChannelEvent(eventType, channel, d1, d2, usedRunningStatus),
+                    bytes: trackData.slice(eventOffset, Math.min(offset, trackData.length))
+                });
+            }
+
+            return events;
+        }
+
+        function readVlq(data, offset) {
+            let value = 0;
+            let bytesRead = 0;
+            while (offset + bytesRead < data.length) {
+                const byte = data[offset + bytesRead];
+                bytesRead++;
+                value = (value << 7) | (byte & 0x7F);
+                if (!(byte & 0x80)) {
+                    return { value, bytesRead };
+                }
+                if (bytesRead >= 4) break;
+            }
+            return { value, bytesRead };
+        }
+
+        function describeMeta(metaType, payload) {
+            const name = META_TYPES[metaType] || "Unknown Meta Event";
+            if (metaType === 0x2F) return `${name}`;
+            if (metaType === 0x51 && payload.length === 3) {
+                const microseconds = (payload[0] << 16) | (payload[1] << 8) | payload[2];
+                const bpm = 60000000 / microseconds;
+                return `${name}: ${microseconds} microseconds/quarter note (${bpm.toFixed(2)} BPM)`;
+            }
+            if (metaType === 0x58 && payload.length >= 4) {
+                return `${name}: ${payload[0]}/${2 ** payload[1]}, clocks/click ${payload[2]}, 32nds/quarter ${payload[3]}`;
+            }
+            if (metaType === 0x59 && payload.length >= 2) {
+                return `${name}: sf=${signedByte(payload[0])}, mi=${payload[1]}`;
+            }
+            if (metaType >= 0x01 && metaType <= 0x07) {
+                return `${name}: "${escapeHtml(decodeText(payload))}"`;
+            }
+            return `${name}: ${payload.length} data byte(s)`;
+        }
+
+        function describeChannelEvent(eventType, channel, d1, d2, running) {
+            const prefix = `ch ${channel}${running ? ", running status" : ""}`;
+            if (eventType === 0x80) {
+                return `${prefix}, note ${d1} (${noteName(d1)}), velocity ${d2}`;
+            }
+            if (eventType === 0x90) {
+                const kind = d2 === 0 ? "Note On as Note Off" : "Note On";
+                return `${prefix}, ${kind}, note ${d1} (${noteName(d1)}), velocity ${d2}`;
+            }
+            if (eventType === 0xA0) return `${prefix}, note ${d1} (${noteName(d1)}), pressure ${d2}`;
+            if (eventType === 0xB0) return `${prefix}, controller ${d1}, value ${d2}`;
+            if (eventType === 0xC0) return `${prefix}, program ${d1}`;
+            if (eventType === 0xD0) return `${prefix}, pressure ${d1}`;
+            if (eventType === 0xE0) {
+                const value = ((d2 || 0) << 7) | (d1 || 0);
+                return `${prefix}, value ${value} (center 8192)`;
+            }
+            return `${prefix}, data ${d1}${d2 === null ? "" : `, ${d2}`}`;
+        }
+
+        function render(parsed, fileSize) {
+            const header = parsed.header;
+            summary.classList.remove("hidden");
+            summary.innerHTML = [
+                metric("File Size", `${fileSize} bytes`),
+                metric("SMF Format", header.error ? header.error : String(header.format)),
+                metric("Declared Tracks", header.error ? "-" : String(header.trackCount)),
+                metric("Division", header.error ? "-" : `${toHex(header.divisionRaw, 4)} / ${header.divisionText}`)
+            ].join("");
+
+            chunks.innerHTML = parsed.chunks.map((chunk, index) => renderChunk(chunk, index)).join("");
+            if (parsed.trailingBytes && parsed.trailingBytes.length > 0) {
+                chunks.innerHTML += renderTrailing(parsed.trailingBytes);
+            }
+        }
+
+        function renderChunk(chunk, index) {
+            const headerRows = [
+                ["Chunk ID", chunk.id],
+                ["Meaning", chunk.meaning],
+                ["Chunk Offset", `${chunk.offset} (${toHex(chunk.offset, 8)})`],
+                ["Data Offset", `${chunk.dataOffset} (${toHex(chunk.dataOffset, 8)})`],
+                ["Data Length", `${chunk.length} bytes`],
+                ["End Offset", `${chunk.endOffset} (${toHex(chunk.endOffset, 8)})`]
+            ];
+            if (chunk.warning) headerRows.push(["Warning", chunk.warning]);
+            if (chunk.header && !chunk.header.error) {
+                headerRows.push(["Format", String(chunk.header.format)]);
+                headerRows.push(["Track Count", String(chunk.header.trackCount)]);
+                headerRows.push(["Division", chunk.header.divisionText]);
+            }
+            if (chunk.header && chunk.header.error) {
+                headerRows.push(["Header Error", chunk.header.error]);
+            }
+
+            return `
+                <article class="section">
+                    <div class="section-header">
+                        <h2>Chunk ${index + 1}: ${escapeHtml(chunk.id)}</h2>
+                        <span>${chunk.length} bytes</span>
+                    </div>
+                    <div class="section-body">
+                        ${renderKeyValueTable(headerRows)}
+                        ${chunk.events ? renderEvents(chunk.events) : ""}
+                        <h3>Raw Bytes</h3>
+                        <pre class="hex">${hexDump(chunk.bytes, chunk.offset)}</pre>
+                    </div>
+                </article>
+            `;
+        }
+
+        function renderEvents(events) {
+            const rows = events.slice(0, 500).map((event, index) => `
+                <tr>
+                    <td class="mono">${index + 1}</td>
+                    <td class="mono">${event.offset}</td>
+                    <td class="mono">${event.delta}</td>
+                    <td class="mono">${event.absTime}</td>
+                    <td class="mono">${toHex(event.status, 2)}</td>
+                    <td>${escapeHtml(event.type)}</td>
+                    <td>${event.detail}</td>
+                    <td class="mono">${bytesToHex(event.bytes)}</td>
+                </tr>
+            `).join("");
+            const clipped = events.length > 500 ? `<p>Showing first 500 of ${events.length} events.</p>` : "";
+
+            return `
+                <h3>Track Events</h3>
+                ${clipped}
+                <div class="event-table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="mono">#</th>
+                                <th class="mono">Offset</th>
+                                <th class="mono">Delta</th>
+                                <th class="mono">Abs</th>
+                                <th class="mono">Status</th>
+                                <th>Type</th>
+                                <th>Meaning</th>
+                                <th class="mono">Bytes</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function renderKeyValueTable(rows) {
+            return `
+                <table>
+                    <tbody>
+                        ${rows.map(([key, value]) => `
+                            <tr>
+                                <th>${escapeHtml(key)}</th>
+                                <td class="mono">${escapeHtml(value)}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function renderTrailing(bytes) {
+            return `
+                <article class="section">
+                    <div class="section-header">
+                        <h2>Trailing Bytes</h2>
+                        <span>${bytes.length} bytes</span>
+                    </div>
+                    <div class="section-body">
+                        <pre class="hex">${hexDump(bytes, 0)}</pre>
+                    </div>
+                </article>
+            `;
+        }
+
+        function metric(label, value) {
+            return `
+                <div class="metric">
+                    <div class="label">${escapeHtml(label)}</div>
+                    <div class="value">${escapeHtml(value)}</div>
+                </div>
+            `;
+        }
+
+        function readAscii(data, offset, length) {
+            let text = "";
+            for (let i = 0; i < length; i++) {
+                text += String.fromCharCode(data[offset + i] || 0);
+            }
+            return text;
+        }
+
+        function decodeText(bytes) {
+            try {
+                return new TextDecoder("utf-8").decode(bytes);
+            } catch {
+                return Array.from(bytes).map(byte => String.fromCharCode(byte)).join("");
+            }
+        }
+
+        function hexDump(bytes, baseOffset) {
+            const lines = [];
+            for (let i = 0; i < bytes.length; i += 16) {
+                const slice = bytes.slice(i, i + 16);
+                const hex = Array.from(slice).map(byte => byte.toString(16).toUpperCase().padStart(2, "0")).join(" ");
+                const ascii = Array.from(slice).map(byte => byte >= 32 && byte <= 126 ? String.fromCharCode(byte) : ".").join("");
+                lines.push(`${toHex(baseOffset + i, 8)}  ${hex.padEnd(47, " ")}  ${ascii}`);
+            }
+            return escapeHtml(lines.join("\n"));
+        }
+
+        function bytesToHex(bytes) {
+            return Array.from(bytes).map(byte => byte.toString(16).toUpperCase().padStart(2, "0")).join(" ");
+        }
+
+        function toHex(value, width) {
+            return `0x${Number(value).toString(16).toUpperCase().padStart(width, "0")}`;
+        }
+
+        function noteName(noteNumber) {
+            if (noteNumber === undefined) return "?";
+            const name = NOTE_NAMES[noteNumber % 12];
+            const octave = Math.floor(noteNumber / 12) - 1;
+            return `${name}${octave}`;
+        }
+
+        function signedByte(byte) {
+            return byte > 127 ? byte - 256 : byte;
+        }
+
+        function makeErrorEvent(offset, absTime, message) {
+            return {
+                offset,
+                absTime,
+                delta: "-",
+                status: 0,
+                type: "Parse Error",
+                detail: escapeHtml(message),
+                bytes: new Uint8Array()
+            };
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XO to SEQTRAK MIDI Converter</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;600;800&display=swap"
+        rel="stylesheet">
+    <!-- JSZip CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #07080b;
+            --bg-darker: #020304;
+            --card-bg: rgba(20, 22, 28, 0.45);
+            --card-border: rgba(255, 255, 255, 0.07);
+            --accent-purple: #8b5cf6;
+            --accent-blue: #3b82f6;
+            --accent-gradient: linear-gradient(135deg, #8b5cf6, #3b82f6);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --text-dim: #6b7280;
+            --success: #10b981;
+            --error: #ef4444;
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Background blur shapes */
+        body::before,
+        body::after {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            opacity: 0.15;
+        }
+
+        body::before {
+            background: var(--accent-purple);
+            top: 15%;
+            left: 20%;
+        }
+
+        body::after {
+            background: var(--accent-blue);
+            bottom: 15%;
+            right: 20%;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            padding: 40px 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 30px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+            background: linear-gradient(to right, #ffffff, #a5b4fc, #93c5fd);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            font-weight: 300;
+            line-height: 1.6;
+        }
+
+        .main-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            transition: var(--transition-smooth);
+        }
+
+        /* Dropzone Styles */
+        .dropzone {
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 50px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            position: relative;
+            background: rgba(255, 255, 255, 0.01);
+            overflow: hidden;
+        }
+
+        .dropzone::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--accent-gradient);
+            opacity: 0;
+            transition: var(--transition-smooth);
+            z-index: 0;
+        }
+
+        .dropzone:hover {
+            border-color: var(--accent-purple);
+            background: rgba(255, 255, 255, 0.03);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.1);
+        }
+
+        .dropzone.dragover {
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.08);
+            transform: scale(0.99);
+        }
+
+        .dropzone-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .upload-icon {
+            width: 64px;
+            height: 64px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-purple);
+            font-size: 28px;
+            transition: var(--transition-smooth);
+        }
+
+        .dropzone:hover .upload-icon {
+            background: var(--accent-gradient);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .dropzone h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .dropzone p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        /* File Info Panel */
+        .info-panel {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .file-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .file-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--text-main);
+        }
+
+        .file-size {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .midi-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .detail-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .detail-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+        }
+
+        .detail-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Notes visualization */
+        .notes-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .notes-title {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .notes-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .note-badge {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            color: #c084fc;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .note-badge span {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+        }
+
+        /* Actions area */
+        .actions-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            background: var(--accent-gradient);
+            border: none;
+            color: white;
+            padding: 16px 32px;
+            border-radius: 14px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 16px rgba(139, 92, 246, 0.25);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.35);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn:disabled {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-dim);
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* Toast container */
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: rgba(18, 18, 24, 0.9);
+            border: 1px solid var(--card-border);
+            padding: 14px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+            animation: toastIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--error);
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--success);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
+        footer a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: var(--transition-smooth);
+        }
+
+        footer a:hover {
+            color: var(--accent-purple);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <header>
+            <h1>XO to SEQTRAK</h1>
+            <p>Automatically split drum MIDI files exported from XLN Audio XO<br>into separate MIDI files for YAMAHA
+                SEQTRAK drum kit slots.</p>
+        </header>
+
+        <main class="main-card">
+            <!-- Dropzone -->
+            <div id="dropzone" class="dropzone">
+                <input type="file" id="fileInput" class="file-input" accept=".mid,.midi">
+                <div class="dropzone-content">
+                    <div class="upload-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3>Drag & drop your MIDI file here</h3>
+                        <p>or click to select a file (.mid, .midi)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Info Panel (Hidden initially) -->
+            <div id="infoPanel" class="info-panel">
+                <div class="info-header">
+                    <div class="file-meta">
+                        <span id="infoFileName" class="file-name">filename.mid</span>
+                        <span id="infoFileSize" class="file-size">0 KB</span>
+                    </div>
+                    <span
+                        style="color: var(--success); display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 500;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        Loaded Successfully
+                    </span>
+                </div>
+
+                <div class="midi-details">
+                    <div class="detail-card">
+                        <span class="detail-label">Division</span>
+                        <span id="valDivision" class="detail-value">-</span>
+                    </div>
+                    <div class="detail-card">
+                        <span class="detail-label">Track Name</span>
+                        <span id="valTrackName" class="detail-value"
+                            style="font-family: inherit; font-size: 1rem;">-</span>
+                    </div>
+                    <div class="detail-card">
+                        <span class="detail-label">Note Types</span>
+                        <span id="valNoteCount" class="detail-value">-</span>
+                    </div>
+                </div>
+
+                <div class="notes-container">
+                    <span class="notes-title">Detected Notes (Mapped from lowest pitch to C3)</span>
+                    <div id="notesList" class="notes-list">
+                        <!-- Badges go here -->
+                    </div>
+                </div>
+
+                <div class="actions-panel">
+                    <button id="btnDownload" class="btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Download ZIP for SEQTRAK
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 XO to SEQTRAK MIDI Converter. Ready for GitHub Pages.</p>
+            <p><a href="./manual.html">Open Manual</a></p>
+            <p><a href="./debugger.html">Open SMF Debugger</a></p>
+        </footer>
+    </div>
+
+    <!-- Toast container for notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script>
+        // Note numbers conversion helper
+        const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const SEQTRAK_OUTPUT_NOTE = 0x3C;
+        const OUTPUT_DIVISION = 480;
+        function getNoteName(noteNumber) {
+            const name = NOTE_NAMES[noteNumber % 12];
+            const octave = Math.floor(noteNumber / 12) - 2;
+            return `${name}${octave}`;
+        }
+
+        function getNoteHex(noteNumber) {
+            return `0x${noteNumber.toString(16).toUpperCase().padStart(2, '0')}`;
+        }
+
+        // Element references
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const infoPanel = document.getElementById('infoPanel');
+        const infoFileName = document.getElementById('infoFileName');
+        const infoFileSize = document.getElementById('infoFileSize');
+        const valDivision = document.getElementById('valDivision');
+        const valTrackName = document.getElementById('valTrackName');
+        const valNoteCount = document.getElementById('valNoteCount');
+        const notesList = document.getElementById('notesList');
+        const btnDownload = document.getElementById('btnDownload');
+        const toastContainer = document.getElementById('toastContainer');
+
+        let currentMidiData = null;
+
+        // Toast notifications
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                ${type === 'error' ?
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>' :
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>'
+                }
+                <span>${message}</span>
+            `;
+            toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Drag and drop handlers
+        dropzone.addEventListener('click', () => fileInput.click());
+
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+
+        ['dragleave', 'dragend'].forEach(type => {
+            dropzone.addEventListener(type, () => {
+                dropzone.classList.remove('dragover');
+            });
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // Main file handler
+        function handleFile(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (ext !== 'mid' && ext !== 'midi') {
+                showToast('Only .mid or .midi files are supported.', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const arrayBuffer = e.target.result;
+                    const result = parseMidi(new Uint8Array(arrayBuffer));
+
+                    currentMidiData = result;
+                    currentMidiData.fileName = file.name;
+
+                    // Display info
+                    infoFileName.textContent = file.name;
+                    infoFileSize.textContent = `${(file.size / 1024).toFixed(2)} KB`;
+                    valDivision.textContent = `${result.division} -> ${OUTPUT_DIVISION}`;
+                    valTrackName.textContent = result.trackName || '(Untitled Track)';
+                    valNoteCount.textContent = result.uniqueNotes.length;
+
+                    // Generate note badges
+                    notesList.innerHTML = '';
+                    result.uniqueNotes.forEach((noteNum, index) => {
+                        const badge = document.createElement('div');
+                        badge.className = 'note-badge';
+                        badge.innerHTML = `
+                            Slot ${index + 1}
+                            <span>(${getNoteName(noteNum)} -> ${getNoteName(SEQTRAK_OUTPUT_NOTE)} ${getNoteHex(SEQTRAK_OUTPUT_NOTE)})</span>
+                        `;
+                        notesList.appendChild(badge);
+                    });
+
+                    if (result.uniqueNotes.length === 0) {
+                        showToast('Warning: No note events detected in the track.', 'error');
+                    } else {
+                        showToast('MIDI file loaded successfully.');
+                    }
+
+                    // Reveal panel
+                    infoPanel.style.display = 'flex';
+                } catch (err) {
+                    console.error(err);
+                    showToast(`Failed to parse MIDI file: ${err.message}`, 'error');
+                }
+            };
+            reader.onerror = function () {
+                showToast('Error occurred while reading the file.', 'error');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // MIDI Parsing logic
+        function readVLQ(data, offset) {
+            let value = 0;
+            let bytesRead = 0;
+            while (true) {
+                let b = data[offset + bytesRead];
+                bytesRead++;
+                value = (value << 7) | (b & 0x7F);
+                if (!(b & 0x80)) {
+                    break;
+                }
+            }
+            return { value, bytesRead };
+        }
+
+        function parseMidi(data) {
+            if (data.length < 14) {
+                throw new Error("File size is too small.");
+            }
+
+            const headerType = String.fromCharCode(...data.slice(0, 4));
+            if (headerType !== 'MThd') {
+                throw new Error("Valid MIDI header (MThd) not found.");
+            }
+
+            const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+            const headerLen = view.getUint32(4);
+            if (headerLen !== 6) {
+                throw new Error("Invalid header length.");
+            }
+
+            const fmt = view.getUint16(8);
+            const ntrks = view.getUint16(10);
+            const division = view.getUint16(12);
+
+            let offset = 14;
+            let trackData = null;
+
+            for (let t = 0; t < ntrks; t++) {
+                if (offset >= data.length) break;
+                const chunkType = String.fromCharCode(...data.slice(offset, offset + 4));
+                const chunkLen = view.getUint32(offset + 4);
+
+                if (chunkType === 'MTrk' && trackData === null) {
+                    trackData = data.slice(offset + 8, offset + 8 + chunkLen);
+                }
+                offset += 8 + chunkLen;
+            }
+
+            if (!trackData) {
+                throw new Error("MIDI track data not found.");
+            }
+
+            const events = [];
+            let toffset = 0;
+            let lastStatus = null;
+            let absTime = 0;
+            let trackName = "";
+            const uniqueNotesSet = new Set();
+
+            while (toffset < trackData.length) {
+                const deltaResult = readVLQ(trackData, toffset);
+                const delta = deltaResult.value;
+                toffset += deltaResult.bytesRead;
+                absTime += delta;
+
+                let status = trackData[toffset];
+                if (status & 0x80) {
+                    toffset++;
+                    lastStatus = status;
+                } else {
+                    status = lastStatus;
+                }
+
+                const eventType = status & 0xF0;
+                const channel = status & 0x0F;
+
+                if (status === 0xFF) {
+                    const metaType = trackData[toffset];
+                    toffset++;
+                    const lenResult = readVLQ(trackData, toffset);
+                    const len = lenResult.value;
+                    toffset += lenResult.bytesRead;
+
+                    const metaData = trackData.slice(toffset, toffset + len);
+                    toffset += len;
+
+                    if (metaType === 0x03) {
+                        trackName = new TextDecoder("utf-8").decode(metaData);
+                    }
+
+                    events.push({
+                        abs_time: absTime,
+                        type: 'meta',
+                        meta_type: metaType,
+                        data: metaData
+                    });
+                } else if (status === 0xF0 || status === 0xF7) {
+                    const lenResult = readVLQ(trackData, toffset);
+                    const len = lenResult.value;
+                    toffset += lenResult.bytesRead;
+                    const sysexData = trackData.slice(toffset, toffset + len);
+                    toffset += len;
+
+                    events.push({
+                        abs_time: absTime,
+                        type: 'sysex',
+                        status: status,
+                        data: sysexData
+                    });
+                } else {
+                    if (eventType === 0x80 || eventType === 0x90 || eventType === 0xA0 || eventType === 0xB0 || eventType === 0xE0) {
+                        const d1 = trackData[toffset];
+                        const d2 = trackData[toffset + 1];
+                        toffset += 2;
+
+                        if (eventType === 0x80 || eventType === 0x90) {
+                            uniqueNotesSet.add(d1);
+                            events.push({
+                                abs_time: absTime,
+                                type: 'channel',
+                                event_type: eventType,
+                                status: status,
+                                channel: channel,
+                                d1: d1,
+                                d2: d2
+                            });
+                        }
+                    } else if (eventType === 0xC0 || eventType === 0xD0) {
+                        toffset += 1;
+                    }
+                }
+            }
+
+            const uniqueNotes = Array.from(uniqueNotesSet).sort((a, b) => a - b);
+
+            return {
+                division,
+                trackName,
+                events,
+                uniqueNotes
+            };
+        }
+
+        // MIDI Serialization
+        function writeVLQBuffer(value) {
+            const bytes = [];
+            let buffer = value & 0x7F;
+            value >>>= 7;
+            bytes.push(buffer);
+            while (value > 0) {
+                buffer = (value & 0x7F) | 0x80;
+                bytes.push(buffer);
+                value >>>= 7;
+            }
+            return bytes.reverse();
+        }
+
+        function serializeTrack(events, division) {
+            events.sort((a, b) => a.abs_time - b.abs_time);
+
+            const trackBytes = [];
+            let lastAbsTime = 0;
+
+            for (let ev of events) {
+                const delta = ev.abs_time - lastAbsTime;
+                trackBytes.push(...writeVLQBuffer(delta));
+                lastAbsTime = ev.abs_time;
+
+                if (ev.type === 'meta') {
+                    trackBytes.push(0xFF);
+                    trackBytes.push(ev.meta_type);
+                    trackBytes.push(...writeVLQBuffer(ev.data.length));
+                    trackBytes.push(...ev.data);
+                } else if (ev.type === 'sysex') {
+                    trackBytes.push(ev.status);
+                    trackBytes.push(...writeVLQBuffer(ev.data.length));
+                    trackBytes.push(...ev.data);
+                } else if (ev.type === 'channel') {
+                    trackBytes.push(ev.status);
+                    trackBytes.push(ev.d1);
+                    if (ev.d2 !== null && ev.d2 !== undefined) {
+                        trackBytes.push(ev.d2);
+                    }
+                }
+            }
+
+            // Append End of Track
+            trackBytes.push(...writeVLQBuffer(0));
+            trackBytes.push(0xFF, 0x2F, 0x00);
+
+            // Build MThd and MTrk chunks
+            const totalSize = 14 + 8 + trackBytes.length;
+            const buffer = new ArrayBuffer(totalSize);
+            const view = new DataView(buffer);
+
+            // MThd
+            view.setUint32(0, 0x4D546864); // 'MThd'
+            view.setUint32(4, 6);
+            view.setUint16(8, 0); // format 0
+            view.setUint16(10, 1); // 1 track
+            view.setUint16(12, division);
+
+            // MTrk
+            view.setUint32(14, 0x4D54726B); // 'MTrk'
+            view.setUint32(18, trackBytes.length);
+
+            const uint8 = new Uint8Array(buffer);
+            uint8.set(trackBytes, 22);
+
+            return uint8;
+        }
+
+        function convertEventsDivision(events, inputDivision, outputDivision) {
+            if (inputDivision & 0x8000) {
+                throw new Error('SMPTE time division is not supported.');
+            }
+            if (inputDivision <= 0) {
+                throw new Error('Invalid MIDI division.');
+            }
+
+            return events.map(ev => ({
+                ...ev,
+                abs_time: Math.round(ev.abs_time * outputDivision / inputDivision)
+            }));
+        }
+
+        // Action: Split and ZIP Download
+        btnDownload.addEventListener('click', async () => {
+            if (!currentMidiData) return;
+
+            btnDownload.disabled = true;
+            btnDownload.textContent = 'Generating ZIP...';
+
+            try {
+                const zip = new JSZip();
+                const inputDivision = currentMidiData.division;
+
+                const metaEvents = currentMidiData.events.filter(e => e.type === 'meta' && e.meta_type !== 0x2F);
+                const noteEvents = currentMidiData.events.filter(e => e.type === 'channel' && (e.event_type === 0x80 || e.event_type === 0x90));
+
+                const targetNotes = currentMidiData.uniqueNotes;
+
+                targetNotes.forEach((noteNum, index) => {
+                    const fileNum = index + 1;
+                    const noteSpecificEvents = noteEvents
+                        .filter(e => e.d1 === noteNum)
+                        .map(e => ({ ...e, d1: SEQTRAK_OUTPUT_NOTE }));
+                    const combined = convertEventsDivision([...metaEvents, ...noteSpecificEvents], inputDivision, OUTPUT_DIVISION);
+                    const midiBytes = serializeTrack(combined, OUTPUT_DIVISION);
+                    zip.file(`${fileNum}.mid`, midiBytes);
+                });
+
+                const content = await zip.generateAsync({ type: 'blob' });
+
+                const originalName = currentMidiData.fileName.replace(/\.[^/.]+$/, "");
+                const zipName = `${originalName}_seqtrak.zip`;
+
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = zipName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                showToast('ZIP file downloaded successfully.');
+            } catch (err) {
+                console.error(err);
+                showToast(`Failed to generate ZIP: ${err.message}`, 'error');
+            } finally {
+                btnDownload.disabled = false;
+                btnDownload.textContent = 'Download ZIP for SEQTRAK';
+            }
+        });
+    </script>
+</body>
+
+</html>

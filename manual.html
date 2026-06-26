@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XO to SEQTRAK Manual</title>
+    <style>
+        :root {
+            --bg: #07080b;
+            --panel: rgba(20, 22, 28, 0.72);
+            --panel-soft: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.1);
+            --text: #f3f4f6;
+            --muted: #9ca3af;
+            --dim: #6b7280;
+            --accent: #38bdf8;
+            --accent-2: #a78bfa;
+            --warning: #fbbf24;
+            --mono: Consolas, "Liberation Mono", "Courier New", monospace;
+            --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            line-height: 1.65;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            color: var(--accent-2);
+        }
+
+        .page {
+            width: min(960px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 34px 0 48px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            gap: 18px;
+            margin-bottom: 22px;
+        }
+
+        h1,
+        h2,
+        h3,
+        p {
+            margin-top: 0;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+            font-size: clamp(2rem, 5vw, 3.3rem);
+            line-height: 1;
+        }
+
+        h2 {
+            margin-bottom: 12px;
+            font-size: 1.35rem;
+        }
+
+        h3 {
+            margin-bottom: 8px;
+            color: var(--muted);
+            font-size: 1rem;
+        }
+
+        p {
+            color: var(--muted);
+        }
+
+        .nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .button {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel-soft);
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 38px;
+            padding: 0 13px;
+            font-weight: 700;
+        }
+
+        .card {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--panel);
+            margin-top: 16px;
+            padding: 20px;
+        }
+
+        .notice {
+            border: 1px solid rgba(251, 191, 36, 0.35);
+            border-radius: 10px;
+            background: rgba(251, 191, 36, 0.08);
+            color: var(--text);
+            padding: 14px 16px;
+            margin: 16px 0;
+        }
+
+        .notice strong {
+            color: var(--warning);
+        }
+
+        ol,
+        ul {
+            margin: 0;
+            padding-left: 1.35rem;
+        }
+
+        li {
+            margin: 8px 0;
+            color: var(--text);
+        }
+
+        li p {
+            margin: 4px 0 0;
+        }
+
+        code {
+            font-family: var(--mono);
+            color: #d8b4fe;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-size: 0.95rem;
+        }
+
+        th,
+        td {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 9px 10px;
+            text-align: left;
+        }
+
+        th {
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.025);
+        }
+
+        footer {
+            margin-top: 28px;
+            color: var(--dim);
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        @media (max-width: 700px) {
+            header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .nav {
+                justify-content: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="page">
+        <header>
+            <div>
+                <h1>XO to SEQTRAK Manual</h1>
+                <p>Export samples and MIDI from XO, convert the MIDI, and import the result into YAMAHA SEQTRAK.</p>
+            </div>
+            <nav class="nav" aria-label="Page links">
+                <a class="button" href="./index.html">Converter</a>
+                <a class="button" href="./debugger.html">SMF Debugger</a>
+            </nav>
+        </header>
+
+        <section class="card">
+            <h2>1. Prepare XO</h2>
+            <ol>
+                <li>Open the XO plug-in or XO standalone application.</li>
+                <li>
+                    Open <code>Audio &amp; MIDI Setup</code> and set <code>Sample Rate</code> to <code>44100 Hz</code>.
+                    <div class="notice">
+                        <strong>Important:</strong> If this setting is different, SEQTRAK may not be able to load the
+                        exported samples.
+                    </div>
+                    <ul>
+                        <li>The available sample rate options depend on the audio interface you use.</li>
+                        <li>If you use <code>SEQTRAK (Yamaha Steinberg USB ASIO)</code> as the audio interface, you can select <code>44100 Hz</code>.</li>
+                    </ul>
+                </li>
+                <li>Choose a preset or select samples manually, then create the sequence data in XO.</li>
+            </ol>
+        </section>
+
+        <section class="card">
+            <h2>2. Export WAV and MIDI from XO</h2>
+            <ol>
+                <li>Open the <code>Export WAV &amp; MIDI</code> panel.</li>
+                <li>Click <code>Render WAVs</code>.</li>
+                <li>Click <code>Processed Kit</code>. WAV files will be written to the export folder.</li>
+                <li>Drag and drop <code>Beat as MIDI</code> to export the MIDI file.</li>
+            </ol>
+        </section>
+
+        <section class="card">
+            <h2>3. Convert the MIDI file</h2>
+            <ol>
+                <li>Open <a href="https://mak-ogw.github.io/xo-to-seqtrak/">xo-to-seqtrak</a>.</li>
+                <li>Drag and drop the MIDI file exported from XO.</li>
+                <li>Download the converted ZIP file.</li>
+                <li>Extract the converted ZIP file before importing it into SEQTRAK App.</li>
+            </ol>
+        </section>
+
+        <section class="card">
+            <h2>4. Import WAV files into SEQTRAK App</h2>
+            <ol>
+                <li>Open SEQTRAK App.</li>
+                <li>Open <code>PROJECT / SOUND MANAGER</code>.</li>
+                <li>Open the <code>SOUNDS</code> tab.</li>
+                <li>Drag and drop all WAV files exported from XO.</li>
+                <li>
+                    Change the category for each WAV file.
+                    <p>You may choose any category, but the following categories place the samples at the beginning of each slot group on SEQTRAK.</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>SEQTRAK Slot</th>
+                                <th>Recommended Category</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>SLOT 1</td>
+                                <td>KICK</td>
+                            </tr>
+                            <tr>
+                                <td>SLOT 2</td>
+                                <td>SNARE</td>
+                            </tr>
+                            <tr>
+                                <td>SLOT 3</td>
+                                <td>CLAP</td>
+                            </tr>
+                            <tr>
+                                <td>SLOT 4</td>
+                                <td>CLOSED HIHAT</td>
+                            </tr>
+                            <tr>
+                                <td>SLOT 5</td>
+                                <td>OPEN HIHAT</td>
+                            </tr>
+                            <tr>
+                                <td>SLOT 6</td>
+                                <td>TOM</td>
+                            </tr>
+                            <tr>
+                                <td>SLOT 7</td>
+                                <td>SHAKER / TAMBOURINE</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </li>
+                <li>Click <code>IMPORT</code> to import the WAV files.</li>
+            </ol>
+        </section>
+
+        <section class="card">
+            <h2>5. Import MIDI patterns into SEQTRAK App</h2>
+            <ol>
+                <li>Return to <code>HOME</code> and open <code>GUI EDITOR</code>.</li>
+                <li>Select the <code>DRUMKIT</code> track, then click <code>PATTERN</code>.</li>
+                <li>Click the <code>MIDI IMPORT</code> button.</li>
+                <li>Select the MIDI file you want to import from the extracted ZIP files.</li>
+                <li>Select the destination slot number.</li>
+                <li>The pattern is now imported, and you can reproduce the same sequence data from XO on SEQTRAK.</li>
+            </ol>
+        </section>
+
+        <footer>
+            <p>&copy; 2026 XO to SEQTRAK MIDI Converter.</p>
+        </footer>
+    </main>
+</body>
+
+</html>
